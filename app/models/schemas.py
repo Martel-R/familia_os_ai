@@ -13,6 +13,20 @@ class ReciboExtraido(BaseModel):
     valor_total: float = Field(description="Valor total da compra / nota fiscal")
     itens: List[ItemExtraido] = Field(default_factory=list, description="Lista de todos os itens identificados no cupom")
 
+class ItemContracheque(BaseModel):
+    descricao: str = Field(description="Descrição da verba ou rubrica (ex: Salário Base, INSS, IRRF, Vale Refeição)")
+    tipo: str = Field(description="'vencimento' se for provento/crédito, 'desconto' se for dedução")
+    valor: float = Field(description="Valor numérico da rubrica")
+
+class ContrachequeExtraido(BaseModel):
+    fonte_pagadora: Optional[str] = Field(default=None, description="Nome do empregador, empresa ou órgão pagador")
+    mes_ano_referencia: Optional[str] = Field(default=None, description="Mês e ano de competência (ex: 10/2026 ou Outubro/2026)")
+    data_pagamento: Optional[str] = Field(default=None, description="Data de crédito ou pagamento no formato AAAA-MM-DD se legível")
+    total_vencimentos: float = Field(description="Total bruto dos proventos/vencimentos")
+    total_descontos: float = Field(description="Total geral de deduções e descontos")
+    valor_liquido: float = Field(description="Valor líquido creditado ao trabalhador (vencimentos - descontos)")
+    itens: List[ItemContracheque] = Field(default_factory=list, description="Lista discriminada das rubricas de vencimentos e descontos")
+
 class ChatRequest(BaseModel):
     pergunta: str = Field(description="Pergunta em linguagem natural sobre o inventário, manutenções ou contatos")
 

@@ -1,16 +1,15 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from app.models.schemas import ReciboExtraido, ChatRequest, ChatResponse
+from app.models.schemas import ReciboExtraido, ContrachequeExtraido, ChatRequest, ChatResponse
 from app.agents.ocr_agent import ocr_agent
 from app.agents.sql_agent import sql_agent
 
 app = FastAPI(
     title="Familia OS - Agente IA",
-    description="Serviço isolado para OCR de cupons fiscais e consultas em linguagem natural (Text-to-SQL) sobre o ecossistema familiar.",
-    version="1.0.0"
+    description="Serviço isolado para OCR de cupons fiscais, análise de contracheques e consultas em linguagem natural (Text-to-SQL).",
+    version="1.1.0"
 )
 
-# Configuração de CORS para permitir acesso do Dashboard Web e App Android
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,9 +23,10 @@ def health_check():
     return {
         "servico": "Familia OS - Agente IA",
         "status": "online",
-        "versao": "1.0.0",
+        "versao": "1.1.0",
         "endpoints": {
-            "ocr": "/api/ocr/receipt",
+            "ocr_cupom": "/api/ocr/receipt",
+            "ocr_contracheque": "/api/ocr/payslip",
             "chat_sql": "/api/chat",
             "docs": "/docs"
         }
@@ -35,24 +35,41 @@ def health_check():
 @app.post("/api/ocr/receipt", response_model=ReciboExtraido, summary="OCR de Cupom Fiscal com Visão Computacional")
 async def extrair_cupom(file: UploadFile = File(...)):
     """
-    Recebe o upload de uma foto de cupom fiscal (JPEG/PNG) e utiliza o Gemini Vision
-    via LangChain para extrair os itens, fornecedor e valor total estruturados.
+    Recebe o upload de foto de cupom fiscal (JPEG/PNG) e utiliza o Gemini 2.5 Flash
+    para extrair fornecedor, data, valor total e itens discriminados.
     """
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="O arquivo enviado deve ser uma imagem válida.")
+    if not (file.content_type.startswith("image/") or file.content_type == "application/pdf"):
+        raise HTTPException(status_code=400, detail="O arquivo deve ser uma imagem ou PDF.")
 
     try:
         conteudo_bytes = await file.read()
-        resultado = ocr_agent.processar_recibo(conteudo_bytes, mime_type=file.content_type)
-        return resultado
+        return ocr_agent.processar_recibo(conteudo_bytes, mime_type=file.content_type or "image/jpeg")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao processar imagem do cupom: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar cupom: {str(e)}")
+
+@app.post("/api/ocr/payslip", response_model=ContrachequeExtraido, summary="Extração Inteligente de Contracheque / Holerite")
+async def extrair_contracheque(file: UploadFile = File(...)):
+    """
+    Recebe o upload de contracheque (PDF ou imagem) e extrai:
+    - Empregador / Fonte pagadora
+    - Mês e ano de competência
+    - Salário bruto, total de descontos e valor líquido
+    - Rubricas discriminadas
+    """
+    content_type = file.content_type or "application/pdf"
+    if not (content_type == "application/pdf" or content_type.startswith("image/")):
+        raise HTTPException(status_code=400, detail="Formato inválido. Envie um arquivo PDF ou imagem (PNG/JPEG).")
+
+    try:
+        conteudo_bytes = await file.read()
+        return ocr_agent.processar_contracheque(conteudo_bytes, mime_type=content_type)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar contracheque: {str(e)}")
 
 @app.post("/api/chat", response_model=ChatResponse, summary="Consulta conversacional ao inventário e rotinas (Text-to-SQL)")
 async def conversar_com_banco(requisicao: ChatRequest):
     """
-    Recebe uma pergunta em linguagem natural (ex: 'Onde está a furadeira?', 'Quantas moedas o Gabriel tem?')
-    e consulta o schema 'familialm' no banco de dados via LangChain SQL Agent.
+    Recebe uma pergunta em linguagem natural e consulta o schema 'familialm' no PostgreSQL via Gemini.
     """
     if not requisicao.pergunta.strip():
         raise HTTPException(status_code=400, detail="A pergunta não pode estar vazia.")
