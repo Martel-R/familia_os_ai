@@ -38,7 +38,7 @@ class SQLAgent:
             )
 
             llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 google_api_key=self.api_key,
                 temperature=0.0
             )
@@ -53,14 +53,24 @@ class SQLAgent:
             agent = create_sql_agent(
                 llm=llm,
                 db=db,
+                agent_type="tool-calling",
                 verbose=False,
-                prefix=prefixo,
-                handle_parsing_errors=True
+                prefix=prefixo
             )
 
             resultado = agent.invoke({"input": pergunta})
+            saida = resultado.get("output", "Não foi possível obter uma resposta precisa.")
+            if isinstance(saida, list) and len(saida) > 0:
+                primeiro = saida[0]
+                if isinstance(primeiro, dict) and "text" in primeiro:
+                    saida = primeiro["text"]
+                elif hasattr(primeiro, "content"):
+                    saida = primeiro.content
+                else:
+                    saida = str(primeiro)
+
             return {
-                "resposta": resultado.get("output", "Não foi possível obter uma resposta precisa."),
+                "resposta": str(saida),
                 "consulta_realizada": "Consulta SQL executada com sucesso no schema familialm."
             }
 
