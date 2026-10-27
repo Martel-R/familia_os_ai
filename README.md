@@ -45,3 +45,17 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 A documentação interativa estará acessível em: `http://localhost:8000/docs`
+
+---
+
+## 🐳 Execução via Docker
+
+A imagem é gerada e publicada automaticamente no Docker Hub pelo pipeline de CI/CD:
+
+```bash
+docker pull <usuario>/familia-os-ai:latest
+docker run -d -p 8000:8000 --name familia-os-ai \
+  -e GOOGLE_API_KEY="sua_chave" \
+  -e SUPABASE_DB_URL="postgresql://postgres:postgres@host:54322/postgres" \
+  <usuario>/familia-os-ai:latest
+```
