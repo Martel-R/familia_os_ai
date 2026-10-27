@@ -27,6 +27,21 @@ class ContrachequeExtraido(BaseModel):
     valor_liquido: float = Field(description="Valor líquido creditado ao trabalhador (vencimentos - descontos)")
     itens: List[ItemContracheque] = Field(default_factory=list, description="Lista discriminada das rubricas de vencimentos e descontos")
 
+class TransacaoDocumento(BaseModel):
+    data: Optional[str] = Field(default=None, description="Data da transação ou compra no formato AAAA-MM-DD se legível")
+    descricao: str = Field(description="Nome do estabelecimento, favorecido ou descrição do lançamento")
+    categoria_sugerida: Optional[str] = Field(default="Geral", description="Categoria provável (ex: Alimentação, Transporte, Lazer, Saúde, Serviços)")
+    tipo: str = Field(default="despesa", description="'despesa' para compras/débitos/saídas ou 'receita' para créditos/entradas")
+    valor: float = Field(description="Valor monetário positivo da transação")
+
+class DocumentoFinanceiroExtraido(BaseModel):
+    tipo_documento: str = Field(description="'fatura_cartao' para fatura de cartão de crédito ou 'extrato_bancario' para extrato de conta corrente/poupança")
+    instituicao: Optional[str] = Field(default=None, description="Nome do banco ou emissor do cartão (ex: Nubank, Itaú, Inter, Bradesco)")
+    periodo_referencia: Optional[str] = Field(default=None, description="Mês de referência ou período do extrato/fatura")
+    data_vencimento_fatura: Optional[str] = Field(default=None, description="Data de vencimento da fatura do cartão no formato AAAA-MM-DD")
+    valor_total: Optional[float] = Field(default=0.0, description="Valor total da fatura ou saldo final do extrato")
+    transacoes: List[TransacaoDocumento] = Field(default_factory=list, description="Lista de todas as compras ou movimentações extraídas do documento")
+
 class ChatRequest(BaseModel):
     pergunta: str = Field(description="Pergunta em linguagem natural sobre o inventário, manutenções ou contatos")
 

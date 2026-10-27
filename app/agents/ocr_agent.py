@@ -2,7 +2,11 @@ import base64
 from typing import Optional
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from app.models.schemas import ReciboExtraido, ContrachequeExtraido
+from app.models.schemas import (
+    ReciboExtraido,
+    ContrachequeExtraido,
+    DocumentoFinanceiroExtraido,
+)
 from app.config import settings
 
 class OCRAgent:
@@ -54,6 +58,37 @@ class OCRAgent:
             "a data de crédito/pagamento (AAAA-MM-DD), o total bruto de vencimentos/rendimentos, "
             "o total de deduções/descontos (INSS, IRRF, vales, etc.), e o valor líquido creditado. "
             "Liste também as principais rubricas (itens) identificadas com sua descrição, tipo (vencimento ou desconto) e valor."
+        )
+
+        mensagem = HumanMessage(
+            content=[
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": f"data:{mime_type};base64,{arquivo_b64}"
+                }
+            ]
+        )
+
+        return structured_llm.invoke([mensagem])
+
+    def processar_documento_financeiro(
+        self, arquivo_bytes: bytes, mime_type: str = "application/pdf"
+    ) -> DocumentoFinanceiroExtraido:
+        llm = self._obter_llm()
+        structured_llm = llm.with_structured_output(DocumentoFinanceiroExtraido)
+        arquivo_b64 = base64.b64encode(arquivo_bytes).decode("utf-8")
+
+        prompt = (
+            "Você é um especialista em inteligência financeira, conciliação bancária e análise de faturas de cartão de crédito. "
+            "Analise com máxima atenção este documento financeiro (PDF ou imagem). "
+            "1. Identifique se é uma fatura de cartão de crédito ('fatura_cartao') ou um extrato de conta ('extrato_bancario'). "
+            "2. Extraia o nome da instituição bancária ou emissor do cartão (ex: Nubank, Itaú, Inter, etc.). "
+            "3. Extraia o período/mês de referência e a data de vencimento da fatura (no formato AAAA-MM-DD), se houver. "
+            "4. Extraia o valor total da fatura ou saldo final. "
+            "5. Extraia CADA UMA das compras ou movimentações financeiras individuais listadas: data do lançamento (AAAA-MM-DD), "
+            "descrição clara do estabelecimento/favorecido, categoria sugerida (ex: Alimentação, Transporte, Lazer, Assinatura, Mercado, Saúde, etc.), "
+            "tipo ('despesa' para compras/débitos ou 'receita' para pagamentos/estornos/créditos) e valor numérico positivo."
         )
 
         mensagem = HumanMessage(
