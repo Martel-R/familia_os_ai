@@ -70,3 +70,18 @@ class ExameMedicoExtraido(BaseModel):
     medico_solicitante: Optional[str] = Field(default=None, description="Nome do médico solicitante ou responsável técnico")
     resumo_geral: Optional[str] = Field(default=None, description="Resumo ou conclusão geral dos achados clínicos")
     exames: List[ExameIndividual] = Field(default_factory=list, description="Lista de TODOS os exames laboratoriais ou médicos identificados no arquivo")
+
+class AvaliacaoClinicaRequest(BaseModel):
+    usuario_id: str
+    nome_usuario: str
+    tipo_sanguineo: Optional[str] = None
+    alergias: Optional[str] = None
+    medicamentos_continuos: Optional[str] = None
+    remedios_ativos: List[str] = Field(default_factory=list)
+    historico_exames: List[dict] = Field(default_factory=list)
+    metricas_recentes: List[dict] = Field(default_factory=list)
+
+class AvaliacaoClinicaResponse(BaseModel):
+    resumo_clinico: str = Field(description="Síntese clínica e preventiva dos achados laboratoriais, métricas e histórico de saúde, destacando tendências e possíveis problemas a investigar.")
+    orientacoes_medico: str = Field(description="Guia prático com perguntas-chave, tópicos prioritários e condutas para a família conversar com o médico na próxima consulta.")
+    nivel_alerta: str = Field(default="normal", description="'baixo', 'moderado' ou 'alto'")

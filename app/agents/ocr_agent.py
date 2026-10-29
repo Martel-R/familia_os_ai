@@ -7,6 +7,8 @@ from app.models.schemas import (
     ContrachequeExtraido,
     DocumentoFinanceiroExtraido,
     ExameMedicoExtraido,
+    AvaliacaoClinicaRequest,
+    AvaliacaoClinicaResponse,
 )
 from app.config import settings
 
@@ -138,6 +140,35 @@ class OCRAgent:
             ]
         )
 
+        return structured_llm.invoke([mensagem])
+
+    def gerar_avaliacao_clinica(self, dados: AvaliacaoClinicaRequest) -> AvaliacaoClinicaResponse:
+        llm = self._obter_llm()
+        structured_llm = llm.with_structured_output(AvaliacaoClinicaResponse)
+
+        prompt = (
+            f"Você é um médico de família experiente com foco em medicina preventiva e estilo de vida. "
+            f"O paciente '{dados.nome_usuario}' deseja um relatório clínico para ter um 'norte' claro do que conversar "
+            f"com o médico na sua próxima consulta. "
+            f"Analise o prontuário e histórico de saúde disponível abaixo:\n\n"
+            f"- Tipo Sanguíneo: {dados.tipo_sanguineo or 'Não informado'}\n"
+            f"- Alergias Conhecidas: {dados.alergias or 'Nenhuma'}\n"
+            f"- Medicamentos Contínuos: {dados.medicamentos_continuos or 'Nenhum'}\n"
+            f"- Lembretes de Remédios Ativos: {', '.join(dados.remedios_ativos) if dados.remedios_ativos else 'Nenhum'}\n"
+            f"- Histórico de Exames Recentes e Laudos: {dados.historico_exames}\n"
+            f"- Diário de Métricas Vitais (Pressão, Glicemia, Peso, Temperatura): {dados.metricas_recentes}\n\n"
+            f"Gere uma resposta estruturada contendo:\n"
+            f"1. `resumo_clinico`: Síntese em tópicos dos achados de saúde do paciente em linguagem acessível e profissional. "
+            f"Destaque tendências observadas (ex: níveis de glicose, perfil de colesterol, controle da pressão arterial, "
+            f"deficiências de nutrientes ou vitaminas, funções renal/hepática) e possíveis pontos que merecem atenção clínica.\n"
+            f"2. `orientacoes_medico`: Guia prático com 3 a 5 perguntas objetivas e tópicos prioritários para o paciente levar "
+            f"e fazer diretamente ao médico na próxima consulta (ex: 'Perguntar se é necessário dosar insulina ou hemoglobina glicada', "
+            f"'Questionar indicação de suplementação de Vitamina D', 'Avaliar necessidade de ajuste na dieta para redução de LDL').\n"
+            f"3. `nivel_alerta`: Classifique como 'baixo' (parâmetros dentro da normalidade), 'moderado' (alterações que requerem acompanhamento "
+            f"de rotina) ou 'alto' (alterações significativas que requerem atenção médica prioritária)."
+        )
+
+        mensagem = HumanMessage(content=prompt)
         return structured_llm.invoke([mensagem])
 
 ocr_agent = OCRAgent()

@@ -5,6 +5,8 @@ from app.models.schemas import (
     ContrachequeExtraido,
     DocumentoFinanceiroExtraido,
     ExameMedicoExtraido,
+    AvaliacaoClinicaRequest,
+    AvaliacaoClinicaResponse,
     ChatRequest,
     ChatResponse,
 )
@@ -118,6 +120,22 @@ async def extrair_exame_medico(file: UploadFile = File(...)):
         return ocr_agent.processar_exame_medico(conteudo_bytes, mime_type=content_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar exame médico: {str(e)}")
+
+@app.post(
+    "/api/health/clinical-assessment",
+    response_model=AvaliacaoClinicaResponse,
+    summary="Avaliação Clínica Integrativa e Guia para Próxima Consulta Médica",
+)
+async def gerar_avaliacao_clinica(requisicao: AvaliacaoClinicaRequest):
+    """
+    Analisa o histórico de exames, laudos, métricas vitais e medicamentos de um paciente
+    e sintetiza um resumo clínico com possíveis problemas a investigar e orientações
+    diretas para a família levar e conversar com o médico na consulta.
+    """
+    try:
+        return ocr_agent.gerar_avaliacao_clinica(requisicao)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao gerar avaliação clínica com IA: {str(e)}")
 
 @app.post("/api/chat", response_model=ChatResponse, summary="Consulta conversacional ao inventário e rotinas (Text-to-SQL)")
 async def conversar_com_banco(requisicao: ChatRequest):
