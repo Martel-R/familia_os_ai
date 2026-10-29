@@ -45,7 +45,7 @@ def health_check():
 @app.post("/api/ocr/receipt", response_model=ReciboExtraido, summary="OCR de Cupom Fiscal com Visão Computacional")
 async def extrair_cupom(file: UploadFile = File(...)):
     """
-    Recebe o upload de foto de cupom fiscal (JPEG/PNG) e utiliza o Gemini 2.5 Flash
+    Recebe o upload de foto de cupom fiscal (JPEG/PNG) e utiliza o Gemini 4 Argon
     para extrair fornecedor, data, valor total e itens discriminados.
     """
     if not (file.content_type.startswith("image/") or file.content_type == "application/pdf"):

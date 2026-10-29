@@ -38,7 +38,7 @@ class SQLAgent:
             )
 
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
+                model="gemini-4-argon",
                 google_api_key=self.api_key,
                 temperature=0.0
             )

@@ -20,7 +20,7 @@ class OCRAgent:
         if not self.api_key:
             raise ValueError("GOOGLE_API_KEY não configurada. Defina a variável de ambiente.")
         return ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-4-argon",
             google_api_key=self.api_key,
             temperature=0.1
         )
