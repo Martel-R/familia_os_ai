@@ -4,6 +4,7 @@ from app.models.schemas import (
     ReciboExtraido,
     ContrachequeExtraido,
     DocumentoFinanceiroExtraido,
+    ExameMedicoExtraido,
     ChatRequest,
     ChatResponse,
 )
@@ -92,6 +93,31 @@ async def extrair_documento_financeiro(file: UploadFile = File(...)):
         return ocr_agent.processar_documento_financeiro(conteudo_bytes, mime_type=content_type)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar documento financeiro: {str(e)}")
+
+@app.post(
+    "/api/ocr/medical-exam",
+    response_model=ExameMedicoExtraido,
+    summary="Extração Inteligente de Exames e Laudos Médicos com IA",
+)
+async def extrair_exame_medico(file: UploadFile = File(...)):
+    """
+    Recebe laudo ou exame médico (PDF ou imagem) e extrai com IA:
+    - Paciente
+    - Data do exame
+    - Laboratório / Clínica e Médico
+    - Título do exame
+    - Conclusão médica
+    - Métricas laboratoriais (glicose, colesterol, hemograma, etc.)
+    """
+    content_type = file.content_type or "application/pdf"
+    if not (content_type == "application/pdf" or content_type.startswith("image/")):
+        raise HTTPException(status_code=400, detail="Formato inválido. Envie um arquivo PDF ou imagem (PNG/JPEG).")
+
+    try:
+        conteudo_bytes = await file.read()
+        return ocr_agent.processar_exame_medico(conteudo_bytes, mime_type=content_type)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar exame médico: {str(e)}")
 
 @app.post("/api/chat", response_model=ChatResponse, summary="Consulta conversacional ao inventário e rotinas (Text-to-SQL)")
 async def conversar_com_banco(requisicao: ChatRequest):

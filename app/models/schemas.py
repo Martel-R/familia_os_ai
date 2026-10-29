@@ -48,3 +48,20 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     resposta: str = Field(description="Resposta humanizada gerada pelo agente")
     consulta_realizada: Optional[str] = Field(default=None, description="Informações ou SQL de consulta utilizado")
+
+class MetricaExtraida(BaseModel):
+    tipo_metrica: str = Field(description="'glicemia', 'colesterol', 'pressao', 'hemoglobina', 'plaquetas', 'leucocitos', 'tsh', 'vitamina_d', 'creatinina', 'peso', etc.")
+    nome_parametro: str = Field(description="Nome do parâmetro medido (ex: Glicose em Jejum, Colesterol Total, Hemoglobina, TSH Ultra-sensível)")
+    valor_obtido: float = Field(description="Valor numérico obtido no exame")
+    unidade: str = Field(description="Unidade de medida (ex: mg/dL, g/dL, %, mcUI/mL, /mm³)")
+    valor_referencia: Optional[str] = Field(default=None, description="Intervalo de referência indicado no laudo (ex: '70 a 99 mg/dL')")
+    status_resultado: Optional[str] = Field(default="normal", description="'normal', 'alterado_alto' ou 'alterado_baixo'")
+
+class ExameMedicoExtraido(BaseModel):
+    paciente_nome: Optional[str] = Field(default=None, description="Nome do paciente identificado no laudo")
+    data_exame: Optional[str] = Field(default=None, description="Data da realização ou liberação do exame no formato AAAA-MM-DD")
+    laboratorio_ou_clinica: Optional[str] = Field(default=None, description="Nome do laboratório, hospital ou clínica (ex: Fleury, Dasa, Sabin)")
+    medico_solicitante: Optional[str] = Field(default=None, description="Nome do médico solicitante ou responsável técnico")
+    titulo_exame: str = Field(description="Nome ou tipo principal do exame (ex: 'Hemograma Completo', 'Perfil Lipídico', 'Glicemia de Jejum', 'Ecocardiograma')")
+    conclusao_ou_diagnostico: Optional[str] = Field(default=None, description="Resumo do laudo, impressão diagnóstica ou conclusão médica")
+    metricas: List[MetricaExtraida] = Field(default_factory=list, description="Lista de parâmetros e medições laboratoriais identificadas")

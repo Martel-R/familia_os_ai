@@ -6,6 +6,7 @@ from app.models.schemas import (
     ReciboExtraido,
     ContrachequeExtraido,
     DocumentoFinanceiroExtraido,
+    ExameMedicoExtraido,
 )
 from app.config import settings
 
@@ -89,6 +90,39 @@ class OCRAgent:
             "5. Extraia CADA UMA das compras ou movimentações financeiras individuais listadas: data do lançamento (AAAA-MM-DD), "
             "descrição clara do estabelecimento/favorecido, categoria sugerida (ex: Alimentação, Transporte, Lazer, Assinatura, Mercado, Saúde, etc.), "
             "tipo ('despesa' para compras/débitos ou 'receita' para pagamentos/estornos/créditos) e valor numérico positivo."
+        )
+
+        mensagem = HumanMessage(
+            content=[
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url",
+                    "image_url": f"data:{mime_type};base64,{arquivo_b64}"
+                }
+            ]
+        )
+
+        return structured_llm.invoke([mensagem])
+
+    def processar_exame_medico(
+        self, arquivo_bytes: bytes, mime_type: str = "application/pdf"
+    ) -> ExameMedicoExtraido:
+        llm = self._obter_llm()
+        structured_llm = llm.with_structured_output(ExameMedicoExtraido)
+        arquivo_b64 = base64.b64encode(arquivo_bytes).decode("utf-8")
+
+        prompt = (
+            "Você é um médico patologista clínico e especialista em inteligência artificial para saúde familiar. "
+            "Analise cuidadosamente este laudo ou documento de exame médico laboratorial/imagem (PDF ou imagem). "
+            "1. Identifique o nome do paciente (se legível), a data do exame no formato AAAA-MM-DD, o laboratório ou clínica emissora, "
+            "e o médico solicitante (se houver). "
+            "2. Extraia o título ou tipo do exame (ex: 'Hemograma Completo', 'Perfil Lipídico', 'Glicemia de Jejum', 'Urina Tipo 1', 'TSH e T4 Livre', 'Ecocardiograma'). "
+            "3. Extraia a conclusão ou resumo diagnóstico do laudo. "
+            "4. Extraia CADA UMA das métricas e medições laboratoriais encontradas: "
+            "tipo_metrica ('glicemia', 'colesterol', 'pressao', 'hemoglobina', 'plaquetas', 'leucocitos', 'tsh', 'vitamina_d', 'creatinina', 'peso', etc.), "
+            "nome_parametro (ex: 'Glicose em Jejum', 'Colesterol HDL', 'Hemoglobina'), "
+            "valor_obtido (número float), unidade (ex: 'mg/dL', 'g/dL', '%', 'mcUI/mL'), "
+            "valor_referencia (ex: '70 a 99 mg/dL'), e status_resultado ('normal', 'alterado_alto' ou 'alterado_baixo')."
         )
 
         mensagem = HumanMessage(
