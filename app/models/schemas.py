@@ -49,19 +49,24 @@ class ChatResponse(BaseModel):
     resposta: str = Field(description="Resposta humanizada gerada pelo agente")
     consulta_realizada: Optional[str] = Field(default=None, description="Informações ou SQL de consulta utilizado")
 
-class MetricaExtraida(BaseModel):
-    tipo_metrica: str = Field(description="'glicemia', 'colesterol', 'pressao', 'hemoglobina', 'plaquetas', 'leucocitos', 'tsh', 'vitamina_d', 'creatinina', 'peso', etc.")
-    nome_parametro: str = Field(description="Nome do parâmetro medido (ex: Glicose em Jejum, Colesterol Total, Hemoglobina, TSH Ultra-sensível)")
-    valor_obtido: float = Field(description="Valor numérico obtido no exame")
-    unidade: str = Field(description="Unidade de medida (ex: mg/dL, g/dL, %, mcUI/mL, /mm³)")
-    valor_referencia: Optional[str] = Field(default=None, description="Intervalo de referência indicado no laudo (ex: '70 a 99 mg/dL')")
-    status_resultado: Optional[str] = Field(default="normal", description="'normal', 'alterado_alto' ou 'alterado_baixo'")
+class ItemResultadoLaboratorial(BaseModel):
+    nome_parametro: str = Field(description="Nome do parâmetro medido (ex: Glicose em Jejum, Hemoglobina, Colesterol HDL, TSH, Plaquetas, Ureia, Creatinina, Leucócitos)")
+    resultado: str = Field(description="Resultado medido em texto ou número (ex: '92', '14.2', 'Não reagente', 'Negativo', 'Normal', '120/80')")
+    valor_numerico: Optional[float] = Field(default=None, description="Valor numérico float se mensurável (ex: 92.0, 14.2)")
+    unidade: Optional[str] = Field(default="", description="Unidade de medida (ex: 'mg/dL', 'g/dL', '%', 'mcUI/mL', '/mm³', 'ng/mL')")
+    valor_referencia: Optional[str] = Field(default=None, description="Valores de referência indicados no laudo (ex: '70 a 99 mg/dL', 'Não reagente')")
+    status_resultado: Optional[str] = Field(default="normal", description="'normal', 'alterado_alto', 'alterado_baixo' ou 'observacao'")
+
+class ExameIndividual(BaseModel):
+    titulo_exame: str = Field(description="Nome do exame individual (ex: 'Hemograma Completo', 'Glicemia de Jejum', 'Perfil Lipídico', 'Função Renal', 'TSH e Hormônios', 'Vitamina D', 'Urina Tipo 1')")
+    data_exame: Optional[str] = Field(default=None, description="Data da realização do exame no formato AAAA-MM-DD")
+    conclusao_ou_interpretacao: Optional[str] = Field(default=None, description="Interpretação, impressão diagnóstica ou conclusão clínica deste exame")
+    resultados: List[ItemResultadoLaboratorial] = Field(default_factory=list, description="Lista completa de parâmetros e analitos medidos neste exame")
 
 class ExameMedicoExtraido(BaseModel):
     paciente_nome: Optional[str] = Field(default=None, description="Nome do paciente identificado no laudo")
-    data_exame: Optional[str] = Field(default=None, description="Data da realização ou liberação do exame no formato AAAA-MM-DD")
+    data_geral: Optional[str] = Field(default=None, description="Data geral do laudo ou liberação no formato AAAA-MM-DD")
     laboratorio_ou_clinica: Optional[str] = Field(default=None, description="Nome do laboratório, hospital ou clínica (ex: Fleury, Dasa, Sabin)")
     medico_solicitante: Optional[str] = Field(default=None, description="Nome do médico solicitante ou responsável técnico")
-    titulo_exame: str = Field(description="Nome ou tipo principal do exame (ex: 'Hemograma Completo', 'Perfil Lipídico', 'Glicemia de Jejum', 'Ecocardiograma')")
-    conclusao_ou_diagnostico: Optional[str] = Field(default=None, description="Resumo do laudo, impressão diagnóstica ou conclusão médica")
-    metricas: List[MetricaExtraida] = Field(default_factory=list, description="Lista de parâmetros e medições laboratoriais identificadas")
+    resumo_geral: Optional[str] = Field(default=None, description="Resumo ou conclusão geral dos achados clínicos")
+    exames: List[ExameIndividual] = Field(default_factory=list, description="Lista de TODOS os exames laboratoriais ou médicos identificados no arquivo")

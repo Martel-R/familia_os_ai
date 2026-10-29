@@ -114,15 +114,18 @@ class OCRAgent:
         prompt = (
             "Você é um médico patologista clínico e especialista em inteligência artificial para saúde familiar. "
             "Analise cuidadosamente este laudo ou documento de exame médico laboratorial/imagem (PDF ou imagem). "
-            "1. Identifique o nome do paciente (se legível), a data do exame no formato AAAA-MM-DD, o laboratório ou clínica emissora, "
-            "e o médico solicitante (se houver). "
-            "2. Extraia o título ou tipo do exame (ex: 'Hemograma Completo', 'Perfil Lipídico', 'Glicemia de Jejum', 'Urina Tipo 1', 'TSH e T4 Livre', 'Ecocardiograma'). "
-            "3. Extraia a conclusão ou resumo diagnóstico do laudo. "
-            "4. Extraia CADA UMA das métricas e medições laboratoriais encontradas: "
-            "tipo_metrica ('glicemia', 'colesterol', 'pressao', 'hemoglobina', 'plaquetas', 'leucocitos', 'tsh', 'vitamina_d', 'creatinina', 'peso', etc.), "
-            "nome_parametro (ex: 'Glicose em Jejum', 'Colesterol HDL', 'Hemoglobina'), "
-            "valor_obtido (número float), unidade (ex: 'mg/dL', 'g/dL', '%', 'mcUI/mL'), "
-            "valor_referencia (ex: '70 a 99 mg/dL'), e status_resultado ('normal', 'alterado_alto' ou 'alterado_baixo')."
+            "MUITO IMPORTANTE: Um mesmo laudo ou arquivo costuma conter VÁRIOS exames diferentes realizados na mesma data "
+            "(por exemplo: 1. Hemograma Completo, 2. Glicemia de Jejum, 3. Perfil Lipídico/Colesterol, 4. Ureia e Creatinina, "
+            "5. TSH e Hormônios, 6. Urina EAS, 7. Parasitológico de Fezes, etc.). "
+            "Você NÃO deve agrupar tudo em apenas um exame genérico. Identifique e extraia CADA EXAME separadamente dentro da lista `exames`. "
+            "Para cada exame em `exames`: "
+            "- `titulo_exame`: Título clínico claro do exame (ex: 'Hemograma Completo', 'Glicemia de Jejum', 'Perfil Lipídico', 'Função Renal - Ureia e Creatinina'). "
+            "- `data_exame`: Data da realização ou liberação (AAAA-MM-DD). "
+            "- `conclusao_ou_interpretacao`: Síntese ou conclusão clínica deste exame se houver. "
+            "- `resultados`: Lista completa de TODOS os analitos/parâmetros medidos deste exame específico, com nome_parametro, "
+            "resultado (texto ou número, ex: '92', '14.5', 'Não reagente', 'Negativo'), valor_numerico (float se mensurável), "
+            "unidade (ex: 'mg/dL', 'g/dL', '%'), valor_referencia e status_resultado ('normal', 'alterado_alto', 'alterado_baixo' ou 'observacao'). "
+            "Identifique também o nome do paciente, a data geral, o laboratório/clínica e o médico solicitante se constarem no cabeçalho/rodapé."
         )
 
         mensagem = HumanMessage(
