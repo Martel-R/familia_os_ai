@@ -12,12 +12,17 @@ from app.models.schemas import (
 )
 from app.agents.ocr_agent import ocr_agent
 from app.agents.sql_agent import sql_agent
+from app.db_migrations import run_multitenant_migrations
 
 app = FastAPI(
     title="Familia OS - Agente IA",
-    description="Serviço isolado para OCR de cupons fiscais, análise de contracheques, extratos bancários, faturas de cartão e consultas em linguagem natural (Text-to-SQL).",
-    version="1.2.0"
+    description="Serviço isolado multi-tenant para OCR de cupons fiscais, análise de contracheques, extratos bancários, faturas de cartão e consultas em linguagem natural (Text-to-SQL).",
+    version="1.3.0"
 )
+
+@app.on_event("startup")
+def on_startup():
+    run_multitenant_migrations()
 
 app.add_middleware(
     CORSMiddleware,
@@ -137,16 +142,21 @@ async def gerar_avaliacao_clinica(requisicao: AvaliacaoClinicaRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao gerar avaliação clínica com IA: {str(e)}")
 
-@app.post("/api/chat", response_model=ChatResponse, summary="Consulta conversacional ao inventário e rotinas (Text-to-SQL)")
+@app.post("/api/chat", response_model=ChatResponse, summary="Consulta conversacional multi-tenant ao inventário e rotinas (Text-to-SQL)")
 async def conversar_com_banco(requisicao: ChatRequest):
     """
-    Recebe uma pergunta em linguagem natural e consulta o schema 'familialm' no PostgreSQL via Gemini.
+    Recebe uma pergunta em linguagem natural e consulta o schema 'familialm' no PostgreSQL via Gemini,
+    filtrando pelo tenant (familia_id).
     """
     if not requisicao.pergunta.strip():
         raise HTTPException(status_code=400, detail="A pergunta não pode estar vazia.")
 
-    resultado = sql_agent.responder(requisicao.pergunta)
+    resultado = sql_agent.responder(requisicao.pergunta, familia_id=requisicao.familia_id)
     return ChatResponse(
         resposta=resultado["resposta"],
         consulta_realizada=resultado.get("consulta_realizada")
     )
+
+@app.post("/api/admin/migrate-multitenant", summary="Executa migração multi-tenant idempotente no schema familialm")
+async def aplicar_migracao_multitenant():
+    return run_multitenant_migrations()

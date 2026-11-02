@@ -44,6 +44,10 @@ class DocumentoFinanceiroExtraido(BaseModel):
 
 class ChatRequest(BaseModel):
     pergunta: str = Field(description="Pergunta em linguagem natural sobre o inventário, manutenções ou contatos")
+    familia_id: Optional[str] = Field(
+        default="00000000-0000-0000-0000-000000000001",
+        description="ID da família (tenant) para isolamento multi-tenant nas consultas SQL",
+    )
 
 class ChatResponse(BaseModel):
     resposta: str = Field(description="Resposta humanizada gerada pelo agente")
