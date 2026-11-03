@@ -37,7 +37,9 @@ class SQLAgent:
                     "agenda_contatos",
                     "transacoes_financeiras",
                     "tarefas_rotinas",
-                    "eventos"
+                    "eventos",
+                    "compras_recibos",
+                    "compras_itens_extraidos"
                 ]
             )
 
