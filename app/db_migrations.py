@@ -245,6 +245,52 @@ END $$;
 GRANT USAGE ON SCHEMA familialm TO anon, authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA familialm TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA familialm TO anon, authenticated, service_role;
+
+ALTER TABLE familialm.compras_itens_extraidos
+    ADD COLUMN IF NOT EXISTS codigo_produto VARCHAR(100);
+
+CREATE INDEX IF NOT EXISTS idx_compras_itens_codigo_produto
+    ON familialm.compras_itens_extraidos(familia_id, codigo_produto);
+
+CREATE TABLE IF NOT EXISTS familialm.compras_catalogo_produtos (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    familia_id UUID NOT NULL DEFAULT familialm.get_user_familia_id() REFERENCES familialm.familias(id) ON DELETE CASCADE,
+    fornecedor VARCHAR(255) NOT NULL,
+    fornecedor_normalizado VARCHAR(255) NOT NULL,
+    codigo_produto VARCHAR(100) NOT NULL,
+    nome_produto VARCHAR(255) NOT NULL,
+    categoria_sugerida VARCHAR(100) DEFAULT 'Alimentação',
+    ultimo_valor_unitario NUMERIC(12,2) DEFAULT 0,
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT compras_catalogo_chave_composta_uk UNIQUE (familia_id, fornecedor_normalizado, codigo_produto)
+);
+
+CREATE INDEX IF NOT EXISTS idx_compras_catalogo_chave
+    ON familialm.compras_catalogo_produtos(familia_id, fornecedor_normalizado, codigo_produto);
+
+DROP TRIGGER IF EXISTS trg_set_familia_id ON familialm.compras_catalogo_produtos;
+CREATE TRIGGER trg_set_familia_id
+    BEFORE INSERT ON familialm.compras_catalogo_produtos
+    FOR EACH ROW EXECUTE FUNCTION familialm.preencher_familia_id_trigger();
+
+ALTER TABLE familialm.compras_catalogo_produtos ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Isolamento multi-tenant familia" ON familialm.compras_catalogo_produtos;
+CREATE POLICY "Isolamento multi-tenant familia" ON familialm.compras_catalogo_produtos
+    FOR ALL
+    TO anon, authenticated, service_role
+    USING (
+        auth.role() = 'service_role'
+        OR familia_id IS NULL
+        OR familia_id = COALESCE(familialm.get_user_familia_id(), '00000000-0000-0000-0000-000000000001'::UUID)
+    )
+    WITH CHECK (
+        auth.role() = 'service_role'
+        OR familia_id IS NULL
+        OR familia_id = COALESCE(familialm.get_user_familia_id(), '00000000-0000-0000-0000-000000000001'::UUID)
+    );
+
+GRANT ALL ON TABLE familialm.compras_catalogo_produtos TO anon, authenticated, service_role;
 NOTIFY pgrst, 'reload schema';
 """
 

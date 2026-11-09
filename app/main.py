@@ -48,17 +48,22 @@ def health_check():
     }
 
 @app.post("/api/ocr/receipt", response_model=ReciboExtraido, summary="OCR de Cupom Fiscal com Visão Computacional")
-async def extrair_cupom(file: UploadFile = File(...)):
+async def extrair_cupom(file: UploadFile = File(...), familia_id: str = None):
     """
     Recebe o upload de foto de cupom fiscal (JPEG/PNG) e utiliza o Gemini 4 Argon
-    para extrair fornecedor, data, valor total e itens discriminados.
+    para extrair fornecedor, data, valor total e itens discriminados (com código do produto
+    e reconciliação prioritária pelo catálogo da família por código + fornecedor).
     """
     if not (file.content_type.startswith("image/") or file.content_type == "application/pdf"):
         raise HTTPException(status_code=400, detail="O arquivo deve ser uma imagem ou PDF.")
 
     try:
         conteudo_bytes = await file.read()
-        return ocr_agent.processar_recibo(conteudo_bytes, mime_type=file.content_type or "image/jpeg")
+        return ocr_agent.processar_recibo(
+            conteudo_bytes,
+            mime_type=file.content_type or "image/jpeg",
+            familia_id=familia_id,
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar cupom: {str(e)}")
 

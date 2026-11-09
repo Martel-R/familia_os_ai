@@ -1,4 +1,8 @@
 import base64
+import json
+import re
+import urllib.parse
+import urllib.request
 from typing import Optional
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -25,16 +29,114 @@ class OCRAgent:
             temperature=0.1
         )
 
-    def processar_recibo(self, imagem_bytes: bytes, mime_type: str = "image/jpeg") -> ReciboExtraido:
+    @staticmethod
+    def normalizar_fornecedor(fornecedor: Optional[str]) -> str:
+        if not fornecedor:
+            return ""
+        return re.sub(r"\s+", " ", fornecedor.strip()).upper()
+
+    @staticmethod
+    def normalizar_codigo(codigo: Optional[str]) -> str:
+        if not codigo:
+            return ""
+        limpo = re.sub(r"\s+", "", codigo.strip()).upper()
+        # Preserva versão sem zeros à esquerda se for numérico
+        sem_zeros = re.sub(r"^0+(?=\d)", "", limpo)
+        return sem_zeros or limpo
+
+    def _aplicar_catalogo_produtos(
+        self, recibo: ReciboExtraido, familia_id: Optional[str] = None
+    ) -> ReciboExtraido:
+        try:
+            fid = familia_id or settings.DEFAULT_FAMILIA_ID
+            url = (
+                f"{settings.SUPABASE_URL}/rest/v1/compras_catalogo_produtos"
+                f"?select=fornecedor_normalizado,codigo_produto,nome_produto,categoria_sugerida"
+                f"&familia_id=eq.{urllib.parse.quote(fid)}"
+            )
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "apikey": settings.SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {settings.SUPABASE_SERVICE_ROLE_KEY}",
+                    "Accept-Profile": "familialm",
+                    "User-Agent": "Mozilla/5.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                catalogo = json.loads(resp.read().decode("utf-8"))
+
+            if not isinstance(catalogo, list) or not catalogo:
+                return recibo
+
+            forn_recibo = self.normalizar_fornecedor(recibo.fornecedor)
+            mapa_exato = {}
+            mapa_por_codigo = {}
+            for reg in catalogo:
+                f_cat = self.normalizar_fornecedor(reg.get("fornecedor_normalizado"))
+                c_raw = (reg.get("codigo_produto") or "").strip().upper()
+                c_norm = self.normalizar_codigo(c_raw)
+                if not c_raw:
+                    continue
+                mapa_exato[(f_cat, c_raw)] = reg
+                mapa_exato[(f_cat, c_norm)] = reg
+                mapa_por_codigo.setdefault(c_raw, []).append((f_cat, reg))
+                if c_norm != c_raw:
+                    mapa_por_codigo.setdefault(c_norm, []).append((f_cat, reg))
+
+            for item in recibo.itens:
+                cod = (item.codigo_produto or "").strip()
+                if not cod:
+                    continue
+                cod_upper = cod.upper()
+                cod_norm = self.normalizar_codigo(cod_upper)
+
+                # 1. Busca exata pela chave composta (fornecedor_normalizado + codigo_produto)
+                encontrado = (
+                    mapa_exato.get((forn_recibo, cod_upper))
+                    or mapa_exato.get((forn_recibo, cod_norm))
+                )
+
+                # 2. Se o nome do fornecedor teve pequena variação no OCR, verifica correspondência parcial de loja + mesmo código
+                if not encontrado and forn_recibo:
+                    candidatos = mapa_por_codigo.get(cod_upper) or mapa_por_codigo.get(cod_norm) or []
+                    for f_cat, reg in candidatos:
+                        if f_cat and (f_cat in forn_recibo or forn_recibo in f_cat):
+                            encontrado = reg
+                            break
+
+                if encontrado:
+                    nome_salvo = (encontrado.get("nome_produto") or "").strip()
+                    cat_salva = (encontrado.get("categoria_sugerida") or "").strip()
+                    if nome_salvo:
+                        item.nome_produto = nome_salvo
+                    if cat_salva:
+                        item.categoria_sugerida = cat_salva
+        except Exception:
+            pass
+        return recibo
+
+    def processar_recibo(
+        self,
+        imagem_bytes: bytes,
+        mime_type: str = "image/jpeg",
+        familia_id: Optional[str] = None,
+    ) -> ReciboExtraido:
         llm = self._obter_llm()
         structured_llm = llm.with_structured_output(ReciboExtraido)
         imagem_b64 = base64.b64encode(imagem_bytes).decode("utf-8")
 
         prompt = (
-            "Você é um especialista em OCR e visão computacional para finanças domésticas. "
+            "Você é um especialista em OCR e visão computacional para notas e cupons fiscais de supermercado (NFC-e / SAT / Cupom Fiscal). "
             "Analise cuidadosamente este cupom ou comprovante fiscal. "
-            "Extraia o nome do fornecedor/loja, a data da compra (se legível), o valor total final, "
-            "e cada item adquirido com sua respectiva quantidade e preço."
+            "Extraia:\n"
+            "1. O nome do fornecedor/loja (`fornecedor`), a data da compra (`data_compra` em AAAA-MM-DD) e o valor total final (`valor_total`).\n"
+            "2. Cada item adquirido (`itens`), incluindo OBRIGATORIAMENTE:\n"
+            "   - `codigo_produto`: o código do item impresso no cupom (código interno do produto na loja ou código de barras EAN/GTIN que aparece ao lado ou antes do nome do produto, ex: '0001234', '7891000100103', '2045'). Nunca ignore o código do produto se ele estiver visível na linha do item!\n"
+            "   - `nome_produto`: descrição do produto.\n"
+            "   - `quantidade`: quantidade adquirida.\n"
+            "   - `valor_unitario`: preço unitário do item.\n"
+            "   - `categoria_sugerida`: categoria doméstica (Alimentação, Limpeza, Higiene, Hortifruti, Bebidas, Padaria, Carnes, Farmácia, Geral)."
         )
 
         mensagem = HumanMessage(
@@ -47,7 +149,8 @@ class OCRAgent:
             ]
         )
 
-        return structured_llm.invoke([mensagem])
+        recibo = structured_llm.invoke([mensagem])
+        return self._aplicar_catalogo_produtos(recibo, familia_id=familia_id)
 
     def processar_contracheque(self, arquivo_bytes: bytes, mime_type: str = "application/pdf") -> ContrachequeExtraido:
         llm = self._obter_llm()

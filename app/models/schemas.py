@@ -2,6 +2,10 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 class ItemExtraido(BaseModel):
+    codigo_produto: Optional[str] = Field(
+        default=None,
+        description="Código numérico, código interno da loja ou código EAN/GTIN do produto impresso no cupom fiscal ao lado ou antes da descrição do item (ex: '7891000100103', '10452', '00234'). Se não houver código visível para o item, retorne null."
+    )
     nome_produto: str = Field(description="Nome ou descrição do item comprado")
     quantidade: float = Field(default=1.0, description="Quantidade comprada do produto")
     valor_unitario: float = Field(description="Valor unitário ou total do item")
